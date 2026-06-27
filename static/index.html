@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>销量分析与预测系统</title>
+  <link rel="stylesheet" href="/static/css/style.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+</head>
+<body>
+
+<!-- 登录页 -->
+<div id="loginPage" class="login-page">
+  <div class="login-card">
+    <h1>销量分析与预测系统</h1>
+    <p class="subtitle">Sales Analysis & Forecast</p>
+    <form id="loginForm">
+      <div class="form-group">
+        <label>用户名</label>
+        <input type="text" id="loginUsername" value="admin" required>
+      </div>
+      <div class="form-group">
+        <label>密码</label>
+        <input type="password" id="loginPassword" value="admin123" required>
+      </div>
+      <button type="submit" class="btn btn-primary btn-block">登 录</button>
+    </form>
+    <p style="text-align:center;margin-top:1rem;font-size:.8rem;color:#64748b">
+      默认账号: admin / admin123
+    </p>
+  </div>
+</div>
+
+<!-- 主应用 -->
+<div id="appLayout" class="app-layout hidden">
+  <aside class="sidebar">
+    <div class="sidebar-brand">📊 销量预测系统</div>
+    <nav class="sidebar-nav">
+      <div class="nav-item active" data-page="dashboard">📈 数据概览</div>
+      <div class="nav-item" data-page="sales">📋 数据管理</div>
+      <div class="nav-item" data-page="forecast">🔮 销量预测</div>
+      <div class="nav-item" data-page="profile">👤 用户中心</div>
+      <div class="nav-item" data-page="system" id="navSystem">⚙️ 系统管理</div>
+    </nav>
+    <div class="sidebar-footer">
+      <div id="sidebarUser">-</div>
+      <button class="btn btn-outline btn-sm" style="margin-top:.5rem;width:100%" onclick="logout()">退出登录</button>
+    </div>
+  </aside>
+
+  <div class="main-content">
+    <header class="topbar">
+      <h2 id="pageTitle">数据概览</h2>
+      <span id="topbarUser" style="font-size:.875rem;color:#64748b"></span>
+    </header>
+
+    <div class="page-body">
+
+      <!-- 数据概览 -->
+      <section id="page-dashboard" class="page-section">
+        <div class="stats-grid" id="dashStats"></div>
+        <div class="grid-2">
+          <div class="card">
+            <div class="card-header"><h3>月度销售趋势</h3></div>
+            <div class="card-body"><div class="chart-container"><canvas id="trendChart"></canvas></div></div>
+          </div>
+          <div class="card">
+            <div class="card-header"><h3>分类销售占比</h3></div>
+            <div class="card-body"><div class="chart-container"><canvas id="categoryChart"></canvas></div></div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-header"><h3>热销产品 TOP 10</h3></div>
+          <div class="card-body table-wrap">
+            <table>
+              <thead><tr><th>产品</th><th>销量</th><th>销售额</th></tr></thead>
+              <tbody id="topProductsTable"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- 数据管理 -->
+      <section id="page-sales" class="page-section hidden">
+        <div class="card">
+          <div class="card-header">
+            <h3>销售数据</h3>
+            <div class="actions">
+              <button class="btn btn-outline btn-sm" onclick="showImportModal()">导入数据</button>
+              <button class="btn btn-primary btn-sm" onclick="showSalesForm()">新增记录</button>
+            </div>
+          </div>
+          <div class="card-body">
+            <div class="form-row" style="margin-bottom:1rem">
+              <input type="text" id="filterProduct" placeholder="搜索产品..." oninput="loadSales()">
+              <select id="filterCategory" onchange="loadSales()"><option value="">全部分类</option></select>
+            </div>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>产品</th><th>分类</th><th>区域</th><th>日期</th>
+                    <th>数量</th><th>单价</th><th>金额</th><th>操作</th>
+                  </tr>
+                </thead>
+                <tbody id="salesTable"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- 新增/编辑表单 -->
+        <div id="salesFormCard" class="card hidden">
+          <div class="card-header"><h3 id="salesFormTitle">新增销售记录</h3></div>
+          <div class="card-body">
+            <form id="salesForm">
+              <input type="hidden" id="salesEditId">
+              <div class="form-row">
+                <div class="form-group"><label>产品名称</label><input id="sfProduct" required></div>
+                <div class="form-group"><label>分类</label><input id="sfCategory" value="未分类"></div>
+                <div class="form-group"><label>区域</label><input id="sfRegion" value="全国"></div>
+                <div class="form-group"><label>销售日期</label><input type="date" id="sfDate" required></div>
+                <div class="form-group"><label>数量</label><input type="number" id="sfQty" min="0" required></div>
+                <div class="form-group"><label>单价</label><input type="number" id="sfPrice" min="0" step="0.01" required></div>
+              </div>
+              <div class="form-group"><label>备注</label><textarea id="sfRemark" rows="2"></textarea></div>
+              <div class="actions">
+                <button type="submit" class="btn btn-primary">保存</button>
+                <button type="button" class="btn btn-outline" onclick="hideSalesForm()">取消</button>
+              </div>
+            </form>
+          </div>
+        </div>
+
+        <!-- 导入 -->
+        <div id="importCard" class="card hidden">
+          <div class="card-header"><h3>批量导入</h3></div>
+          <div class="card-body">
+            <p style="font-size:.875rem;color:#64748b;margin-bottom:1rem">
+              支持 CSV / Excel，需包含列：产品名称、销售日期、数量、单价（可选：分类、区域、备注）
+            </p>
+            <input type="file" id="importFile" accept=".csv,.xlsx,.xls">
+            <div class="actions" style="margin-top:1rem">
+              <button class="btn btn-primary" onclick="importSales()">开始导入</button>
+              <button class="btn btn-outline" onclick="hideImportModal()">取消</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 销量预测 -->
+      <section id="page-forecast" class="page-section hidden">
+        <div class="card">
+          <div class="card-header"><h3>预测配置</h3></div>
+          <div class="card-body">
+            <div class="form-row">
+              <div class="form-group">
+                <label>选择产品</label>
+                <select id="fcProduct"><option value="">自动选择</option></select>
+              </div>
+              <div class="form-group">
+                <label>预测模型</label>
+                <select id="fcModel">
+                  <option value="linear">线性回归</option>
+                  <option value="moving_avg">移动平均</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label>预测月数</label>
+                <input type="number" id="fcPeriods" value="6" min="1" max="24">
+              </div>
+            </div>
+            <button class="btn btn-primary" onclick="runForecast()">开始预测</button>
+          </div>
+        </div>
+        <div id="forecastResult" class="hidden">
+          <div class="stats-grid" id="fcStats"></div>
+          <div class="card">
+            <div class="card-header"><h3>预测结果</h3></div>
+            <div class="card-body">
+              <div class="chart-container"><canvas id="forecastChart"></canvas></div>
+              <div class="table-wrap" style="margin-top:1.5rem">
+                <table>
+                  <thead><tr><th>预测月份</th><th>预测销量</th><th>预测销售额</th></tr></thead>
+                  <tbody id="forecastTable"></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 用户中心 -->
+      <section id="page-profile" class="page-section hidden">
+        <div class="grid-2">
+          <div class="card">
+            <div class="card-header"><h3>个人信息</h3></div>
+            <div class="card-body">
+              <form id="profileForm">
+                <div class="form-group"><label>用户名</label><input id="pfUsername" disabled></div>
+                <div class="form-group"><label>姓名</label><input id="pfName"></div>
+                <div class="form-group"><label>邮箱</label><input type="email" id="pfEmail"></div>
+                <div class="form-group"><label>角色</label><input id="pfRole" disabled></div>
+                <button type="submit" class="btn btn-primary">保存修改</button>
+              </form>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-header"><h3>修改密码</h3></div>
+            <div class="card-body">
+              <form id="passwordForm">
+                <div class="form-group"><label>原密码</label><input type="password" id="pwOld" required></div>
+                <div class="form-group"><label>新密码</label><input type="password" id="pwNew" minlength="6" required></div>
+                <button type="submit" class="btn btn-primary">修改密码</button>
+              </form>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 系统管理 -->
+      <section id="page-system" class="page-section hidden">
+        <div class="stats-grid" id="sysStats"></div>
+        <div class="card">
+          <div class="card-header">
+            <h3>用户管理</h3>
+          </div>
+          <div class="card-body table-wrap">
+            <table>
+              <thead><tr><th>用户名</th><th>姓名</th><th>邮箱</th><th>角色</th><th>状态</th><th>操作</th></tr></thead>
+              <tbody id="usersTable"></tbody>
+            </table>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-header">
+            <h3>系统日志</h3>
+            <button class="btn btn-danger btn-sm" onclick="clearLogs()">清空日志</button>
+          </div>
+          <div class="card-body table-wrap">
+            <table>
+              <thead><tr><th>时间</th><th>操作</th><th>详情</th></tr></thead>
+              <tbody id="logsTable"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+    </div>
+  </div>
+</div>
+
+<script src="/static/js/app.js"></script>
+</body>
+</html>
